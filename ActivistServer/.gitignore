@@ -116,3 +116,19 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# PyCharm
+.idea/
+pyvenv.cfg
+
+# artifacts
+bin/
+man/
+pip-selfcheck.json
+results/
+
+#MacOS
+.DS_Store
+
+#Vim
+*.swp

@@ -14,7 +14,7 @@ class RandomSelectionStrategy(SelectionStrategy):
         self.random_seed = random_seed
 
     def get_next_query(self, data, num_obs):
-        next_query = data.sample(n=num_obs, random_state=self.random_seed).id
+        next_query = data.sample(n=num_obs, random_state=self.random_seed).ids
         return next_query
 
 

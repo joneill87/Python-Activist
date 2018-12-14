@@ -4,8 +4,9 @@ from model import Model, SKLearnKNN
 from typing import Callable, Iterable, Any
 from csv_types import CSVWriter
 from pandas import DataFrame
-
-from sklearn import preprocessing
+from preprocessing import PreprocessingQueue
+from preprocessors.standardScaler import StandardScaler
+from dataset import Dataset
 
 import pandas as pd
 import numpy as np
@@ -13,6 +14,8 @@ import collections
 import os
 import csv
 
+
+# Create a struct to hold our Batch Summary object. This simplifies writing to CSV
 BatchSummary = collections.namedtuple('BatchSummary', ['batch', 'total', 'isLabelled', 'correct',
                                                        'incorrect', 'truePositive', 'trueNegative',
                                                        'falsePositive', 'falseNegative'])
@@ -22,8 +25,9 @@ class SSEvaluationRunner:
     """Used to carry out an evaluation of multiple selection strategies on one or more datasets"""
 
     def __init__(self,
-                 data: DataFrame,
+                 data: Dataset,
                  seeder: Callable[[DataFrame, int], Iterable[Any]],
+                 preprocessor: PreprocessingQueue,
                  num_seed_instances: int,
                  stopping_criterion: StoppingCriterion,
                  batch_size: int,
@@ -34,51 +38,46 @@ class SSEvaluationRunner:
 
         self.data = data
         self.seeder = seeder
+        self.preprocessor = preprocessor
         self.num_seed_instances = num_seed_instances
         self.stopping_criterion = stopping_criterion
         self.batch_size = batch_size
         self.model = model
         self.selection_strategy = selection_strategy
+
+        # Get the paths to the output files.
         self.output_dir = output_dir
         self.detail_file_path = os.path.join(self.output_dir, "evaluation_" + file_identifier + "_detail.csv")
         self.summary_file_path = os.path.join(self.output_dir, "evaluation_" + file_identifier + "_summary.csv")
 
+        # Create the directory if it doesn't exist
         directory = os.path.dirname(output_dir)
         if not os.path.exists(directory):
             os.makedirs(directory)
-
-        self.unlabelled = data
-        self.labelled = DataFrame().reindex_like(data).iloc[0:0]  # create an empty copy of the unlabelled data frame
-
-        self.ids = self.unlabelled.columns[1]
-        self.feature_columns = self.unlabelled.columns[1:-2]
-        self.label_column = self.unlabelled.columns[-1]
+        # Empty array to hold the IDs for rows which have already been queried
         self.queried_ids = []
 
     def add_query(self, ids: Iterable[Any]):
-        labelled = self.labelled
-        unlabelled = self.unlabelled
+        # Currently we have all labels, even for the unlabelled dataset
+        # We can just grab the labels from the unlabelled data and add
+        # them
+        rows_to_label = self.data.unlabelled.by_id(ids)
+        self.data.add_labels(ids, rows_to_label.labels)
         queried_ids = self.queried_ids
-
         queried_ids.extend(ids)
-        new_labelled = unlabelled.loc[unlabelled.id.isin(queried_ids)]
-        labelled = pd.concat([labelled, new_labelled])
-        unlabelled = unlabelled.loc[~unlabelled.id.isin(queried_ids)]
-        return labelled, unlabelled
 
-    def preprocess_data(self, data):
-        data[self.feature_columns] = preprocessing.StandardScaler().fit_transform(data[self.feature_columns])
-        return data
+        return self.data
 
     def run(self):
 
         batch_number = 0
-        self.data = self.preprocess_data(self.data)
-        seed_data = self.seeder(self.data, self.num_seed_instances)
-        train, test = self.add_query(seed_data)
-        unlabelled_obs = test.shape[0]
+        self.data = self.preprocessor.preprocess_data(self.data)
 
-        evaluated = self.evaluate_batch(train, test, batch_number)
+        seed_data = self.seeder(self.data, self.num_seed_instances)
+        self.data = self.add_query(seed_data)
+        unlabelled_obs = self.data.unlabelled.row_count
+
+        evaluated = self.evaluate_batch(self.data, batch_number)
 
         with open(self.detail_file_path, "w") as f:
             evaluated.to_csv(f, header=True)
@@ -92,16 +91,14 @@ class SSEvaluationRunner:
 
         while unlabelled_obs > 0:
             next_query_size = min(unlabelled_obs, self.batch_size)
-            l_j = evaluated.loc[evaluated.isLabelled == 1]
-            l_u = evaluated.loc[evaluated.isLabelled == 0]
             next_query = self.selection_strategy.get_next_query(
-                evaluated.loc[evaluated.isLabelled == 0],
+                self.data.unlabelled,
                 next_query_size)
-            train, test = self.add_query(next_query)
+            self.data = self.add_query(next_query)
 
-            unlabelled_obs = test.shape[0]
+            unlabelled_obs = self.data.unlabelled.row_count
             batch_number += 1
-            evaluated = self.evaluate_batch(train, test, batch_number)
+            evaluated = self.evaluate_batch(self.data, batch_number)
             with open(self.detail_file_path, "a") as f:
                 evaluated.to_csv(f, header=False)
 
@@ -115,12 +112,17 @@ class SSEvaluationRunner:
                                                                                                   unlabelled_obs,
                                                                                                   percent_correct))
 
-    def evaluate_batch(self, train, test, batch_number):
-        self.model.fit(train[self.feature_columns], train[self.label_column])
-        if len(test) == 0:
+    def evaluate_batch(self, data: Dataset, batch_number):
+
+        self.model.fit(data.labelled.features, data.labelled.labels)
+
+        if data.unlabelled.row_count == 0:
             probabilities = np.array([])
         else:
-            probabilities = self.model.predict_proba(test[self.feature_columns])
+            probabilities = self.model.predict_proba(data.unlabelled.features)
+
+        train = data.labelled.copy()
+        test = data.unlabelled.copy()
 
         test = test.assign(isLabelled=0)
         test = test.assign(confidence=[calculate_confidence(row) for row in probabilities])
@@ -128,7 +130,7 @@ class SSEvaluationRunner:
 
         train = train.assign(isLabelled=1)
         train = train.assign(confidence=1)
-        train = train.assign(prediction=train.label)
+        train = train.assign(prediction=train.iloc[:,-1])
         full = pd.concat([train, test])
         full = full.assign(batchNumber=batch_number)
 
@@ -144,7 +146,7 @@ def get_prediction(probabilities):
 
 
 def test_seeder(df, num_seed_instances):
-    return df.head(num_seed_instances)['id']
+    return df.unlabelled.head(num_seed_instances).index.values
 
 
 def get_batch_summary(evaluated, batch_number):
@@ -160,16 +162,22 @@ def get_batch_summary(evaluated, batch_number):
                             false_positive, false_negative)
 
 
+def factorize_labels(labels):
+    return {name: index for index, name in enumerate(labels.unique())}
+
+
 if __name__ == "__main__":
-    p_data = pd.read_csv("data/labelled_tree_canopy_data_scaled.csv")
+    p_data = Dataset(pd.read_csv("data/iris.csv"))
     p_seeder = test_seeder
+    p_preprocessor = PreprocessingQueue(StandardScaler())
     p_sc = None
     p_model = SKLearnKNN(3)
-    p_selection_strategy = HedgedSelectionStrategy(0.2)
-    p_seed_count = 10
-    p_batch_size = 10
+    p_selection_strategy = RandomSelectionStrategy(33)
+    p_seed_count = 4
+    p_batch_size = 2
     SSEvaluationRunner(p_data,
                        p_seeder,
+                       p_preprocessor,
                        p_seed_count,
                        p_sc,
                        p_batch_size,
