@@ -1,0 +1,8 @@
+ActivistClient.sublime-workspace
+*.swp
+venv/lib
+.idea
+.editorconfig
+**/dist/**
+package-lock.json
+pip-selfcheck.json
