@@ -1,3 +1,4 @@
+from numpy import ndarray
 from pandas import DataFrame, Series
 from typing import Iterable, Any, Union
 
@@ -49,8 +50,8 @@ class Dataset:
             self._data[self._feature_columns] = new_features
 
         @property
-        def labels(self):
-            return self._data[self._label_column]
+        def labels(self) -> ndarray:
+            return self._data[self._label_column].values
 
         @labels.setter
         def labels(self, new_labels):

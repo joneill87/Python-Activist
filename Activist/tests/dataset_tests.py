@@ -63,6 +63,32 @@ class TestDatasetMethods(unittest.TestCase):
         found = self.dataset.unlabelled.by_id(ids)
         self.assertEqual(2, found.shape[0])
 
+    def test_add_labels(self):
+        original_data_rows = self.data.shape[0]
+        self.assertEqual(original_data_rows, 4)
+        self.assertEqual(self.dataset.unlabelled.row_count, original_data_rows)
+        id = self.dataset.unlabelled.index[0]
+        label = 'new label'
+        self.dataset.add_labels(id, label)
+        self.assertEqual(self.dataset.labelled.row_count, 1)
+        # we've added a label, we expect labelled to contain one row, and unlabelled to contain 1 fewer
+        self.assertEqual(self.dataset.unlabelled.row_count, original_data_rows - 1)
+        self.assertSequenceEqual([label], self.dataset.labelled.by_id(id).labels.tolist())
+
+        ids = self.dataset.unlabelled.index[1:3]
+        labels = ['new label 2', 'new label 3']
+        self.assertEqual(len(ids), 2)
+
+        self.dataset.add_labels(ids, labels)
+        self.assertEqual(self.dataset.labelled.row_count, 3)
+        self.assertEqual(self.dataset.unlabelled.row_count, original_data_rows - 3)
+        print(self.dataset.labelled.by_id(ids).labels)
+        self.assertSequenceEqual(labels, self.dataset.labelled.by_id(ids).labels.tolist())
+
+
+    def test_by_id_returns_from_labelled_and_unlabelled(self):
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()
