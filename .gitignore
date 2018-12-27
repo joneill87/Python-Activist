@@ -6,3 +6,4 @@ venv/lib
 **/dist/**
 package-lock.json
 pip-selfcheck.json
+.DS_Store
