@@ -1,7 +1,5 @@
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from typing import Iterable, Any, Union
-
-from pandas.core.series import Series
 
 import pandas as pd
 
@@ -78,7 +76,10 @@ class Dataset:
             return self.create_child(self._data.head(n))
 
         def by_id(self, row_id: Union[int, Iterable[int]]) -> 'Dataset':
-            return self.create_child(pd.concat([pd.DataFrame(), self._data.loc[row_id]]))
+            values = self._data.loc[row_id,:]
+            if isinstance(values, Series):
+                values = values.to_frame().transpose()
+            return self.create_child(pd.concat([pd.DataFrame(), values]))
 
         def get_labels(self, data: DataFrame):
             return data[self._label_column]

@@ -1,6 +1,6 @@
 import unittest
 
-from dataset import Dataset
+from Activist.dataset import Dataset
 
 import pandas as pd
 
@@ -56,12 +56,12 @@ class TestDatasetMethods(unittest.TestCase):
     def test_by_id_returns_single_row_for_single_id(self):
         id = self.dataset.unlabelled.index[0]
         found = self.dataset.unlabelled.by_id(id)
-        self.assertIsInstance(found, pd.Series)
+        self.assertEqual(1, found.row_count)
 
     def test_by_id_returns_dataframe_for_multi_id(self):
         ids = self.dataset.unlabelled.index[0:2]
         found = self.dataset.unlabelled.by_id(ids)
-        self.assertEqual(found.shape[0], 2)
+        self.assertEqual(2, found.shape[0])
 
 
 if __name__ == '__main__':
