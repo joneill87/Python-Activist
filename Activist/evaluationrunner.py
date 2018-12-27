@@ -130,7 +130,7 @@ class SSEvaluationRunner:
 
         train = train.assign(isLabelled=1)
         train = train.assign(confidence=1)
-        train = train.assign(prediction=train.iloc[:,-1])
+        train = train.assign(prediction=train.label) # use previously supplied labels as prediction
         full = pd.concat([train, test])
         full = full.assign(batchNumber=batch_number)
 
