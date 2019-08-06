@@ -1,3 +1,4 @@
+import numpy as np
 from numpy import ndarray
 from pandas import DataFrame, Series
 from typing import Iterable, Any, Union
@@ -76,12 +77,16 @@ class Dataset:
         def head(self, n: int = 5):
             return self.create_child(self._data.head(n))
 
-        def by_id(self, row_id: Union[int, Iterable[int]]) -> 'Dataset':
-            # need to remove any rows which aren't in the index
-            values = self._data.loc[row_id,:]
+        def by_id(self, row_id: Union[int, Iterable[int]]) -> 'BaseDataset':
+            values = self._data.loc[row_id, :]
             if isinstance(values, Series):
                 values = values.to_frame().transpose()
-            return self.create_child(pd.concat([pd.DataFrame(), values]))
+
+            matched_values = values[values.index.isin(self._data.index)]
+            return self.create_child(pd.concat([pd.DataFrame(), matched_values]))
+
+        def by_index(self, indices: Union[int, Iterable[int]]) -> 'BaseDataset':
+            return self.create_child(self._data.iloc[indices])
 
         def get_labels(self, data: DataFrame):
             return data[self._label_column]
@@ -135,6 +140,7 @@ class Dataset:
         # need to re-order to match ids
 
         return self.create_dataset(all_matches, False)
+
 
 def factorize_labels(labels):
     return {name: index for index, name in enumerate(labels.unique())}

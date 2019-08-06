@@ -1,26 +1,21 @@
-from Activist.stoppingcriterion import StoppingCriterion
+from Activist.stoppingcriteria.stoppingcriterion import StoppingCriterion
 from Activist.selectionstrategy import *
 from Activist.model import Model, SKLearnKNN
 from Activist.csv_types import CSVWriter
+from Activist.seeders.seedingstrategy import SeedingStrategy
+from Activist.seeders.random_seeder import RandomSeeder
+from Activist.stoppingcriteria.stagnationcriterion import StagnationCriterion
 
 from Activist.preprocessing import PreprocessingQueue
 from Activist.preprocessors.standardScaler import StandardScaler
 from Activist.dataset import Dataset
-
-from pandas import DataFrame
-from typing import Callable, Iterable, Any
+from Activist.domain.reporting import BatchSummary
+from typing import Iterable, Any
 
 import pandas as pd
 import numpy as np
-import collections
 import os
 import csv
-
-
-# Create a struct to hold our Batch Summary object. This simplifies writing to CSV
-BatchSummary = collections.namedtuple('BatchSummary', ['batch', 'total', 'isLabelled', 'correct',
-                                                       'incorrect', 'truePositive', 'trueNegative',
-                                                       'falsePositive', 'falseNegative'])
 
 
 class SSEvaluationRunner:
@@ -28,7 +23,7 @@ class SSEvaluationRunner:
 
     def __init__(self,
                  data: Dataset,
-                 seeder: Callable[[DataFrame, int], Iterable[Any]],
+                 seeder: SeedingStrategy,
                  preprocessor: PreprocessingQueue,
                  num_seed_instances: int,
                  stopping_criterion: StoppingCriterion,
@@ -75,7 +70,7 @@ class SSEvaluationRunner:
         batch_number = 0
         self.data = self.preprocessor.preprocess_data(self.data)
 
-        seed_data = self.seeder(self.data, self.num_seed_instances)
+        seed_data = self.seeder.get_seed_data(self.data, self.num_seed_instances)
         self.data = self.add_query(seed_data)
         unlabelled_obs = self.data.unlabelled.row_count
 
@@ -91,7 +86,7 @@ class SSEvaluationRunner:
             writer.writerow([header for header in summary._asdict().keys()])
             writer.writerow([val for val in summary])
 
-        while unlabelled_obs > 0:
+        while self.stopping_criterion.next_batch_size(self.data, summary, self.batch_size) > 0:
             next_query_size = min(unlabelled_obs, self.batch_size)
             next_query = self.selection_strategy.get_next_query(
                 self.data.unlabelled,
@@ -147,10 +142,6 @@ def get_prediction(probabilities):
     return np.argmax(probabilities)
 
 
-def test_seeder(df, num_seed_instances):
-    return df.unlabelled.head(num_seed_instances).index.values
-
-
 def get_batch_summary(evaluated, batch_number):
         total = evaluated.shape[0]
         label_count = evaluated.isLabelled.sum()
@@ -170,9 +161,9 @@ def factorize_labels(labels):
 
 if __name__ == "__main__":
     p_data = Dataset(pd.read_csv("data/iris.csv"))
-    p_seeder = test_seeder
+    p_seeder = RandomSeeder(13)
     p_preprocessor = PreprocessingQueue(StandardScaler())
-    p_sc = None
+    p_sc = StagnationCriterion(3)
     p_model = SKLearnKNN(3)
     p_selection_strategy = RandomSelectionStrategy(33)
     p_seed_count = 4

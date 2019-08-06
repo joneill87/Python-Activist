@@ -1,8 +1,9 @@
 from Activist.dataset import Dataset
-from Activist.seedingstrategy import SeedingStrategy
+from Activist.seeders.seedingstrategy import SeedingStrategy
 from Activist.selectionstrategy import SelectionStrategy
 
 from typing import Iterable
+
 
 class LabellingJob:
 

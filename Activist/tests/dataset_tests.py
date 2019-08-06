@@ -9,12 +9,11 @@ class TestDatasetMethods(unittest.TestCase):
 
     def setUp(self):
         self.data = pd.DataFrame([
-            ['id_1', 'one', 'ein', 'label_1'],
-            ['id_2', 'two', 'zwei', 'label_2'],
-            ['id_3', 'three', 'drei', 'label_3'],
-            ['id_4', 'four', 'vier', 'label_4']
-                                ],
-                                 columns=['id', 'f1', 'f2', 'label'])
+            [1, 'one', 'ein', 'label_1'],
+            [2, 'two', 'zwei', 'label_2'],
+            [3, 'three', 'drei', 'label_3'],
+            [4, 'four', 'vier', 'label_4']
+        ], columns=['id', 'f1', 'f2', 'label'])
 
         self.dataset = Dataset(self.data)
 

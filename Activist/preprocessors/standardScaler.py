@@ -1,4 +1,4 @@
-from dataset import Dataset
+from Activist.dataset import Dataset
 from sklearn import preprocessing
 
 
