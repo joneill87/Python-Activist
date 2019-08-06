@@ -77,6 +77,7 @@ class Dataset:
             return self.create_child(self._data.head(n))
 
         def by_id(self, row_id: Union[int, Iterable[int]]) -> 'Dataset':
+            # need to remove any rows which aren't in the index
             values = self._data.loc[row_id,:]
             if isinstance(values, Series):
                 values = values.to_frame().transpose()
@@ -126,6 +127,14 @@ class Dataset:
 
     def create_dataset(self, data: DataFrame, parent: 'Dataset', linked: bool = False):
         return self.BaseDataset(data, parent, linked)
+
+    def by_id(self, ids):
+        unlabelled_matches = self.unlabelled.by_id(ids)._data
+        labelled_matches = self.labelled.by_id(ids)._data
+        all_matches = pd.concat([labelled_matches, unlabelled_matches])
+        # need to re-order to match ids
+
+        return self.create_dataset(all_matches, False)
 
 def factorize_labels(labels):
     return {name: index for index, name in enumerate(labels.unique())}

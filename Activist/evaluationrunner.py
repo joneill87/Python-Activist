@@ -1,12 +1,14 @@
-from stoppingcriterion import StoppingCriterion
-from selectionstrategy import *
-from model import Model, SKLearnKNN
-from typing import Callable, Iterable, Any
-from csv_types import CSVWriter
+from Activist.stoppingcriterion import StoppingCriterion
+from Activist.selectionstrategy import *
+from Activist.model import Model, SKLearnKNN
+from Activist.csv_types import CSVWriter
+
+from Activist.preprocessing import PreprocessingQueue
+from Activist.preprocessors.standardScaler import StandardScaler
+from Activist.dataset import Dataset
+
 from pandas import DataFrame
-from preprocessing import PreprocessingQueue
-from preprocessors.standardScaler import StandardScaler
-from dataset import Dataset
+from typing import Callable, Iterable, Any
 
 import pandas as pd
 import numpy as np

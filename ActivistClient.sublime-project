@@ -2,11 +2,15 @@
 	"folders":
 	[
 		{
+			"path": "ActivistClient",
 			"folder_exclude_patterns":
 			[
 				"node_modules"
 			],
-			"path": "ActivistClient"
+			"binary_file_patterns":
+			[
+				"dist"
+			]
 		}
 	]
 }

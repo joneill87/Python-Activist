@@ -87,7 +87,13 @@ class TestDatasetMethods(unittest.TestCase):
 
 
     def test_by_id_returns_from_labelled_and_unlabelled(self):
-        pass
+        labelled_id = self.dataset.unlabelled.index[0]
+        self.dataset.add_labels(labelled_id, 'new label')
+        unlabelled_id = self.dataset.unlabelled.index[1]
+
+        found = self.dataset.by_id([labelled_id, unlabelled_id])
+        self.assertEqual(2, found.row_count)
+
 
 
 if __name__ == '__main__':
